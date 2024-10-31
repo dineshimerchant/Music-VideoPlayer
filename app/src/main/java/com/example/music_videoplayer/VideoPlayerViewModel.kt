@@ -6,7 +6,11 @@ import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import androidx.annotation.OptIn
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -17,6 +21,7 @@ import com.example.music_videoplayer.db.DownloadedAudio
 import com.example.music_videoplayer.model.VideoData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -25,6 +30,9 @@ class VideoPlayerViewModel : ViewModel() {
     private var exoPlayer: ExoPlayer? = null
     var index: Int = 0
     var videoList: List<VideoData> = listOf()
+    var downloadedVideoPath: String? = null
+    var downloadedAudios by mutableStateOf<List<DownloadedAudio>>(emptyList())
+        private set
 
     fun initializePlayer(context: Context) {
         exoPlayer = ExoPlayer.Builder(context).build()
@@ -66,14 +74,18 @@ class VideoPlayerViewModel : ViewModel() {
         return playerView
     }
 
+
+
     fun downloadAudio(context: Context, url: String, title: String){
         val request = DownloadManager.Request(Uri.parse(url))
+
         request.setTitle(title)
         request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "$title.mp3")
 
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadId = manager.enqueue(request)
+        downloadedVideoPath = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)}/$title"
 
         val downloadedAudio = DownloadedAudio(id = downloadId.toInt(), title = title, filePath = "$title.mp3", progress = 0)
         CoroutineScope(Dispatchers.IO).launch {
@@ -100,8 +112,8 @@ class VideoPlayerViewModel : ViewModel() {
         if (isNetworkAvailable(context)) {
             CoroutineScope(Dispatchers.IO).launch {
                 val db = AppDatabase.getDatabase(context)
-                val downloadedAudios = db.downloadedAudioDao().getAll()
-
+                downloadedAudios = db.downloadedAudioDao().getAll()
+                Log.d("SyncDownloads", "syncDownloads: ${downloadedAudios.size}")
             }
         }
     }

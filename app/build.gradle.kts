@@ -66,6 +66,7 @@ dependencies {
 
     // Room Database
     implementation("androidx.room:room-runtime:2.5.0")
+    implementation(libs.androidx.work.runtime.ktx)
     kapt("androidx.room:room-compiler:2.5.0")
 
 
