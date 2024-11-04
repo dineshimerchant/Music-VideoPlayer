@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.os.Bundle
 import android.Manifest
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -117,14 +118,34 @@ fun StreamingVideo() {
 
         Button(
             onClick = {
-                viewModel.downloadVideo(context, currentVideo.videoUrl, currentVideo.videoUrl)
-                viewModel.syncDownloads(context)
+                if (viewModel.isNetworkAvailable(context)) {
+                    viewModel.downloadVideo(context, currentVideo.videoUrl, currentVideo.videoUrl)
+                    viewModel.syncDownloads(context)
+                } else {
+                    Toast.makeText(context, "No internet connection. Cannot download video.", Toast.LENGTH_SHORT).show()
+                }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Download")
         }
 
+        if (!viewModel.isNetworkAvailable(context)) {
+            val downloadedAudio = viewModel.downloadedAudios.lastOrNull()
+            downloadedAudio?.let {
+                Button(
+                    onClick = {
+                        isPlaying = true
+                        viewModel.playDownloadedVideo(it.filePath, context)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Play Last Downloaded Video")
+                }
+            } ?: run {
+                Text("No downloaded videos available.")
+            }
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f)
@@ -146,22 +167,31 @@ fun StreamingVideo() {
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }
-
                 }
             }
         }
 
-        // Add a spacer at the bottom
         Spacer(modifier = Modifier.height(16.dp))
     }
 
     LaunchedEffect(key1 = videoItemIndex) {
+        viewModel.initializePlayer(context)
         isPlaying = true
-        viewModel.apply {
-            releasePlayer()
-            initializePlayer(context)
-            playVideo()
-            syncDownloads(context)
+        if (viewModel.isNetworkAvailable(context)) {
+            viewModel.playVideo()
+        } else {
+            val downloadedAudio = viewModel.downloadedAudios.lastOrNull()
+            downloadedAudio?.let {
+                viewModel.playDownloadedVideo(it.filePath, context)
+            }
         }
+        viewModel.syncDownloads(context)
     }
+
+
 }
+
+
+
+
+

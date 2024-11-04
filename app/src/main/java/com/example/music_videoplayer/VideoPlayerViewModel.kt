@@ -11,6 +11,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -29,7 +31,6 @@ class VideoPlayerViewModel : ViewModel() {
     private var exoPlayer: ExoPlayer? = null
     var index: Int = 0
     var videoList: List<VideoData> = listOf()
-    var downloadedVideoPath: String? = null
     var downloadedAudios by mutableStateOf<List<DownloadedAudio>>(emptyList())
         private set
 
@@ -80,6 +81,34 @@ class VideoPlayerViewModel : ViewModel() {
         downloader.downloadFile(url)
     }
 
+    fun playDownloadedVideo(filePath: String,context: Context) {
+        if (exoPlayer == null) {
+            Log.e("VideoPlayer", "ExoPlayer is not initialized. Initializing now.")
+            initializePlayer(context) // You might need to pass the context here or manage it differently
+        }
+
+        println("File Path $filePath")
+        exoPlayer?.let { player ->
+            player.apply {
+                stop()
+                clearMediaItems()
+                val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
+                setMediaItem(mediaItem)
+                playWhenReady = true
+                prepare()
+
+
+                addListener(object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        Log.e("VideoPlayer", "Playback error: ${error.message}")
+                    }
+                })
+                play()
+            }
+        }
+    }
+
+
 
     fun isNetworkAvailable(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -88,14 +117,11 @@ class VideoPlayerViewModel : ViewModel() {
     }
 
     fun syncDownloads(context: Context) {
-        if (isNetworkAvailable(context)) {
-            CoroutineScope(Dispatchers.IO).launch {
-                val db = AppDatabase.getDatabase(context)
-                downloadedAudios = db.downloadedAudioDao().getAll()
-                downloadedAudios.forEach { audio ->
-                    // Example: Log the details or handle them accordingly
-                    Log.d("DownloadedAudio", "ID: ${audio.id}, Title: ${audio.title}, Path: ${audio.filePath}, Progress: ${audio.progress}")
-                }
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getDatabase(context)
+            downloadedAudios = db.downloadedAudioDao().getAll()
+            downloadedAudios.forEach { audio ->
+                Log.d("DownloadedAudio", "ID: ${audio.id}, Title: ${audio.title}, Path: ${audio.filePath}, Progress: ${audio.progress}")
             }
         }
     }
