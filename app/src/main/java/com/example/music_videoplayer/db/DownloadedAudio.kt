@@ -8,5 +8,6 @@ data class DownloadedAudio(
     @PrimaryKey val id: Int,
     val title: String,
     val filePath: String,
-    val progress: Long
+    var progress: Long,
+    val thumbnail: String? = null
 )

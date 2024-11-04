@@ -1,11 +1,9 @@
 import android.app.Activity
-import android.app.DownloadManager
 import android.content.Context
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER
 import android.content.pm.ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
 import android.net.ConnectivityManager
 import android.net.Uri
-import android.os.Environment
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -16,14 +14,15 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.example.music_videoplayer.VideoDownloader
 import com.example.music_videoplayer.db.AppDatabase
 import com.example.music_videoplayer.db.DownloadedAudio
 import com.example.music_videoplayer.model.VideoData
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
+
 
 @OptIn(UnstableApi::class)
 class VideoPlayerViewModel : ViewModel() {
@@ -76,31 +75,11 @@ class VideoPlayerViewModel : ViewModel() {
 
 
 
-    fun downloadAudio(context: Context, url: String, title: String){
-        val request = DownloadManager.Request(Uri.parse(url))
-
-        request.setTitle(title)
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_MUSIC, "$title.mp3")
-
-        val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = manager.enqueue(request)
-        downloadedVideoPath = "${Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES)}/$title"
-
-        val downloadedAudio = DownloadedAudio(id = downloadId.toInt(), title = title, filePath = "$title.mp3", progress = 0)
-        CoroutineScope(Dispatchers.IO).launch {
-            val db = AppDatabase.getDatabase(context)
-            db.downloadedAudioDao().insert(downloadedAudio)
-        }
+    fun downloadVideo(context: Context, url: String, title: String) {
+        val downloader = VideoDownloader(context, title)
+        downloader.downloadFile(url)
     }
 
-    fun playDownloadedAudio(context: Context, filePath: String) {
-        val player = ExoPlayer.Builder(context).build()
-        val mediaItem = MediaItem.fromUri(Uri.fromFile(File(filePath)))
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
-    }
 
     fun isNetworkAvailable(context: Context): Boolean {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -113,7 +92,10 @@ class VideoPlayerViewModel : ViewModel() {
             CoroutineScope(Dispatchers.IO).launch {
                 val db = AppDatabase.getDatabase(context)
                 downloadedAudios = db.downloadedAudioDao().getAll()
-                Log.d("SyncDownloads", "syncDownloads: ${downloadedAudios.size}")
+                downloadedAudios.forEach { audio ->
+                    // Example: Log the details or handle them accordingly
+                    Log.d("DownloadedAudio", "ID: ${audio.id}, Title: ${audio.title}, Path: ${audio.filePath}, Progress: ${audio.progress}")
+                }
             }
         }
     }
